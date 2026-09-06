@@ -1,40 +1,28 @@
-// src/Agent.ts
 
 import "dotenv/config";
-
 import { LlmAgent, MCPToolset } from "@google/adk";
+import { getGmailAccessToken } from "./gmailAuth";
 
 export const rootAgent = new LlmAgent({
-  name: "mcp_agent",
-
+  name: "gmail-agent",
   model: "gemini-3.6-flash",
-
   instruction: `
-You are a helpful assistant.
-
-You have access to tools provided by a custom MCP server.
-
-When the user asks you to use the MCP server,
-use the appropriate MCP tool instead of answering directly.
-
-For example, when asked to say hello,
-you MUST call the "hello" tool.
+You are a Gmail assistant.
+Use the available Gmail MCP tools whenever the user asks
+you to search, read, or create Gmail drafts.
 `,
-
   tools: [
-    new MCPToolset({
-      type: "StdioConnectionParams",
-
-      serverParams: {
-
-        command: "bun",
-
-
-        args: [
-          "run",
-          "E:\\mcp-learning\\src\\server.ts",
-        ],
-      },
-    }),
-  ],
+  new MCPToolset({
+    type: "StreamableHTTPConnectionParams",
+    url: "https://gmailmcp.googleapis.com/mcp/v1",
+    transportOptions: {
+      fetch: (async (input, init) => {
+        const token = await getGmailAccessToken();
+        const headers = new Headers(init?.headers);
+        headers.set("Authorization", `Bearer ${token}`);
+        return fetch(input, { ...init, headers });
+      }) as typeof fetch,
+    },
+  }),
+],
 });
